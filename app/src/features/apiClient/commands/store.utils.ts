@@ -1,5 +1,14 @@
-import { ApiClientFeatureContext } from "../contexts/meta";
+import {
+  ApiClientFeatureContext,
+  apiClientFeatureContextProviderStore,
+  NoopContext,
+  NoopContextId,
+} from "features/apiClient/store/apiClientFeatureContext/apiClientFeatureContext.store";
 import { RQAPI } from "../types";
+import {
+  apiClientMultiWorkspaceViewStore,
+  ApiClientViewMode,
+} from "../store/multiWorkspaceView/multiWorkspaceView.store";
 
 export function getStores(ctx: ApiClientFeatureContext) {
   return ctx.stores;
@@ -27,4 +36,55 @@ export function getApiClientCollectionVariablesStore(ctx: ApiClientFeatureContex
     return;
   }
   return recordState.collectionVariables;
+}
+
+export function getOrderedApiClientRecords(
+  ctx: ApiClientFeatureContext,
+  runOrder: RQAPI.RunOrder
+): RQAPI.OrderedRequests {
+  const getApiRecord = ctx.stores.records.getState().getData;
+
+  return runOrder
+    .map((o) => {
+      const record = getApiRecord(o.id);
+      return record ? { record, isSelected: o.isSelected } : null;
+    })
+    .filter((r): r is { record: RQAPI.ApiRecord; isSelected: boolean } => !!r);
+}
+
+// Multiview
+export function getApiClientFeatureContext(contextId?: string) {
+  const { getSingleViewContext, getContext, getLastUsedContext } = apiClientFeatureContextProviderStore.getState();
+  if (contextId === NoopContextId) {
+    return NoopContext;
+  }
+  const { viewMode } = apiClientMultiWorkspaceViewStore.getState();
+  if (viewMode === ApiClientViewMode.SINGLE) {
+    return getSingleViewContext();
+  }
+  if (!contextId) {
+    return getLastUsedContext();
+  }
+  return getContext(contextId);
+}
+
+export function getChildParentMap(context: ApiClientFeatureContext) {
+  return context.stores.records.getState().childParentMap;
+}
+
+export function saveOrUpdateRecord(context: ApiClientFeatureContext, apiClientRecord: RQAPI.ApiClientRecord) {
+  const recordId = apiClientRecord.id;
+  const apiRecordsStore = context.stores.records;
+  const doesRecordExist = !!apiRecordsStore.getState().getData(recordId);
+
+  if (doesRecordExist) {
+    apiRecordsStore.getState().updateRecord(apiClientRecord);
+  } else {
+    apiRecordsStore.getState().addNewRecord(apiClientRecord);
+  }
+}
+
+export function saveBulkRecords(context: ApiClientFeatureContext, records: RQAPI.ApiClientRecord[]) {
+  const apiRecordsStore = context.stores.records;
+  apiRecordsStore.getState().updateRecords(records);
 }

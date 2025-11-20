@@ -17,6 +17,9 @@ import {
   parseEnvironmentStore,
 } from "features/apiClient/commands/environments/utils";
 import "./environmentsList.scss";
+import { ApiClientSidebarTabKey } from "features/apiClient/screens/apiClient/components/sidebar/SingleWorkspaceSidebar/SingleWorkspaceSidebar";
+import { EmptyEnvironmentsCreateCard } from "features/apiClient/screens/apiClient/components/sidebar/components/EmptyEnvironmentsCreateCard/EmptyEnvironmentsCreateCard";
+import { Conditional } from "components/common/Conditional";
 
 export const EnvironmentsList = () => {
   const [globalEnvironment, nonGlobalEnvironments, getEnvironment] = useAPIEnvironment((s) => [
@@ -29,7 +32,7 @@ export const EnvironmentsList = () => {
   const [environmentsToExport, setEnvironmentsToExport] = useState<EnvironmentData[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isPostmanExportModalOpen, setIsPostmanExportModalOpen] = useState(false);
-  const { isRecordBeingCreated } = useApiClientContext();
+  const { isRecordBeingCreated, onNewClick } = useApiClientContext();
   const { validatePermission } = useRBAC();
   const { isValidPermission } = validatePermission("api_client_environment", "update");
 
@@ -70,15 +73,20 @@ export const EnvironmentsList = () => {
     [getEnvironment]
   );
 
+  const showEmptyCreateCard =
+    searchValue.length === 0 && nonGlobalEnvironments.length === 0 && !isRecordBeingCreated && isValidPermission;
+
   return (
     <div style={{ height: "inherit" }}>
       <SidebarListHeader
+        listType={ApiClientSidebarTabKey.ENVIRONMENTS}
         onSearch={(value) => setSearchValue(value)}
         newRecordActionOptions={{
           showNewRecordAction: false,
-          onNewRecordClick: () => Promise.resolve(),
+          onNewRecordClick: onNewClick,
         }}
       />
+
       <div className="environments-list-container">
         <div className="environments-list">
           {searchValue.length > 0 && filteredEnvironments.length === 0 ? (
@@ -101,6 +109,9 @@ export const EnvironmentsList = () => {
                   />
                 )
               )}
+              <Conditional condition={showEmptyCreateCard}>
+                <EmptyEnvironmentsCreateCard contextId={null} isValidPermission={isValidPermission} />
+              </Conditional>
               <div className="mt-8">
                 {isRecordBeingCreated === RQAPI.RecordType.ENVIRONMENT && (
                   <SidebarPlaceholderItem name="New Environment" />

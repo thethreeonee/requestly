@@ -459,7 +459,7 @@ export const redirectToWebAppHomePage = (navigate) => {
 };
 
 export function redirectToHome(appMode, navigate) {
-  if (appMode === "desktop") {
+  if (appMode === "DESKTOP") {
     redirectToDesktopHomepage(navigate);
   } else {
     redirectToWebAppHomePage(navigate);
@@ -467,8 +467,8 @@ export function redirectToHome(appMode, navigate) {
 }
 
 // route should be choosen from APP_CONSTANTS.PATH.<your-route>.ABSOLUTE
-export const redirectToDesktopApp = (route) => {
-  let redirectedRoute = "requestly://open-url";
+export const redirectToDesktopApp = (route, redirectToSetappBuild = false) => {
+  let redirectedRoute = redirectToSetappBuild ? "requestly-setapp://open-url" : "requestly://open-url";
   if (route) {
     redirectedRoute = `${redirectedRoute}?route=${route}`;
   }

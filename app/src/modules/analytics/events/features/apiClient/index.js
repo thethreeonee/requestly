@@ -112,8 +112,8 @@ export const trackExportCollectionsClicked = () => {
 };
 
 // Environment & Variables
-export const trackNewEnvironmentClicked = () => {
-  trackEvent(API_CLIENT.ENVIRONMENT_CLICKED);
+export const trackNewEnvironmentClicked = (source) => {
+  trackEvent(API_CLIENT.ENVIRONMENT_CLICKED, { source });
 };
 
 export const trackVariablesSaved = (params) => {
@@ -229,4 +229,83 @@ export const trackMoveRequestToCollectionClicked = () => {
 
 export const trackMoveRequestToCollectionFailed = (destination) => {
   trackEvent(API_CLIENT.MOVE_REQUEST_TO_COLLECTION_FAILED, { destination });
+};
+
+// Collection Runner
+export const trackCollectionRunStarted = (params) => {
+  const { request_count, iteration_count, delay, collection_id } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUN_STARTED, { request_count, iteration_count, delay, collection_id });
+};
+
+export const trackCollectionRunStopped = (params) => {
+  const { request_count, iteration_count, delay, collection_id } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUN_STOPPED, { request_count, iteration_count, delay, collection_id });
+};
+
+export const trackCollectionRunnerViewed = (params) => {
+  const { collection_id, source } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_VIEWED, { collection_id, source });
+};
+
+export const trackCollectionRunHistoryViewed = (params) => {
+  const { collection_id } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUN_HISTORY_VIEWED, { collection_id });
+};
+
+export const trackCollectionRunSaveHistoryFailed = (params) => {
+  const { collection_id } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUN_SAVE_HISTORY_FAILED, { collection_id });
+};
+
+export const trackCollectionRunnerConfigSaved = (params) => {
+  const { collection_id, request_count, iteration_count, delay } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_CONFIG_SAVED, { collection_id, request_count, iteration_count, delay });
+};
+
+export const trackCollectionRunnerConfigSaveFailed = (params) => {
+  const { collection_id, request_count, iteration_count, delay } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_CONFIG_SAVE_FAILED, { collection_id, request_count, iteration_count, delay });
+};
+
+// Tests Autogeneration
+
+export const trackTestGenerationStarted = (params = {}) => {
+  trackEvent(API_CLIENT.TEST_GENERATION_STARTED, params);
+};
+
+export const trackTestGenerationCompleted = (params = {}) => {
+  trackEvent(API_CLIENT.TEST_GENERATION_COMPLETED, params);
+};
+
+export const trackTestGenerationFailed = (params = {}) => {
+  trackEvent(API_CLIENT.TEST_GENERATION_FAILED, params);
+};
+
+// Data-File Support for Collection Runner
+export const trackCollectionRunnerSelectFileClicked = (params) => {
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_SELECT_FILE_CLICKED, params);
+};
+
+export const trackCollectionRunnerFileParsed = (params) => {
+  const { record_count, format } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_FILE_PARSED, { record_count, format });
+};
+
+export const trackCollectionRunnerFileParseFailed = (params) => {
+  const { reason, format } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_FILE_PARSE_FAILED, { reason, format });
+};
+
+export const trackCollectionRunnerRecordLimitExceeded = (params) => {
+  const { record_count } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_FILE_RECORD_LIMIT_EXCEEDED, { record_count });
+};
+
+export const trackCollectionRunnerTruncatedFileUsed = (params) => {
+  const { record_count } = params;
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_TRUNCATED_FILE_USED, { record_count });
+};
+
+export const trackCollectionRunnerFileCleared = (params) => {
+  trackEvent(API_CLIENT.COLLECTION_RUNNER_FILE_CLEARED, params);
 };

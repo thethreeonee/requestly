@@ -1,6 +1,9 @@
 import { EnvironmentData, EnvironmentMap, EnvironmentVariables, VariableScope } from "backend/environment/types";
 import { CollectionVariableMap, RQAPI } from "features/apiClient/types";
 import { ErroredRecord, FileType } from "./local/services/types";
+import { ResponsePromise } from "backend/types";
+import { SavedRunConfig } from "features/apiClient/commands/collectionRunner/types";
+import { RunResult, SavedRunResult } from "features/apiClient/store/collectionRunResult/runResult.store";
 
 export interface EnvironmentInterface<Meta extends Record<string, any>> {
   meta: Meta;
@@ -70,9 +73,34 @@ export interface ApiClientRecordsInterface<Meta extends Record<string, any>> {
     entities: Partial<RQAPI.ApiClientRecord>[],
     writeFunction: (entity: RQAPI.ApiClientRecord) => Promise<unknown>
   ): Promise<{ success: boolean; message?: string }>;
+  batchWriteApiRecords(records: RQAPI.ApiRecord[]): Promise<RQAPI.ApiRecord[]>;
+  batchCreateCollectionRunDetails(
+    details: {
+      collectionId: RQAPI.CollectionRecord["id"];
+      runConfigs?: Record<string, SavedRunConfig>;
+      runResults?: RunResult[];
+    }[]
+  ): RQAPI.RecordsPromise;
   duplicateApiEntities(entities: Partial<RQAPI.ApiClientRecord>[]): Promise<RQAPI.ApiClientRecord[]>;
   moveAPIEntities(entities: Partial<RQAPI.ApiClientRecord>[], newParentId: string): Promise<RQAPI.ApiClientRecord[]>;
   batchCreateRecordsWithExistingId(records: RQAPI.ApiClientRecord[]): RQAPI.RecordsPromise;
+
+  // collection runner
+  getRunConfig(
+    collectionId: RQAPI.ApiClientRecord["collectionId"],
+    runConfigId: RQAPI.RunConfig["id"]
+  ): ResponsePromise<SavedRunConfig>;
+
+  upsertRunConfig(
+    collectionId: RQAPI.ApiClientRecord["collectionId"],
+    runConfig: SavedRunConfig
+  ): ResponsePromise<SavedRunConfig>;
+
+  getRunResults(collectionId: RQAPI.ApiClientRecord["collectionId"]): ResponsePromise<RunResult[]>;
+  addRunResult(
+    collectionId: RQAPI.ApiClientRecord["collectionId"],
+    runResult: RunResult
+  ): ResponsePromise<SavedRunResult>;
 }
 
 export interface ApiClientRepositoryInterface {

@@ -4,7 +4,6 @@ import { getUserAuthDetails } from "store/slices/global/user/selectors";
 import { getActiveWorkspace } from "store/slices/workspaces/selectors";
 import { WorkspaceType } from "features/workspaces/types";
 import { useAPIRecords } from "features/apiClient/store/apiRecords/ApiRecordsContextProvider";
-import { useApiClientRepository } from "../../useApiClientSyncRepo";
 import { useSyncService } from "../store/hooks";
 import { toast } from "utils/Toast";
 import {
@@ -14,6 +13,8 @@ import {
 import * as Sentry from "@sentry/react";
 import { syncServiceStore } from "../store/syncServiceStore";
 import { APIClientSyncService } from "../store/types";
+import { useApiClientRepository } from "features/apiClient/contexts/meta";
+import { ApiClientLocalStoreRepository } from "../ApiClientLocalStorageRepository";
 
 const LoggedInDaemon: React.FC<{}> = () => {
   const activeWorkspace = useSelector(getActiveWorkspace);
@@ -22,6 +23,10 @@ const LoggedInDaemon: React.FC<{}> = () => {
   const [addNewRecords, getAllRecords] = useAPIRecords((state) => [state.addNewRecords, state.getAllRecords]);
 
   useEffect(() => {
+    if (syncRepository instanceof ApiClientLocalStoreRepository) {
+      return;
+    }
+
     if (activeWorkspace?.workspaceType !== WorkspaceType.PERSONAL) {
       return;
     }

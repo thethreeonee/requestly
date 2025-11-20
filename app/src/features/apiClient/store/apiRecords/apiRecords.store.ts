@@ -1,8 +1,66 @@
 import { NativeError } from "errors/NativeError";
 import { ErroredRecord } from "features/apiClient/helpers/modules/sync/local/services/types";
-import { CollectionVariableMap, RQAPI } from "features/apiClient/types";
+import { CollectionVariableMap, RequestContentType, RQAPI } from "features/apiClient/types";
 import { create, StoreApi } from "zustand";
-import { createVariablesStore, parseVariables, VariablesState } from "../variables/variables.store";
+import { EnvVariableState, parseEnvVariables } from "../variables/variables.store";
+import { ApiClientFile, apiClientFileStore, FileFeature, FileId } from "../apiClientFilesStore";
+import { PersistedVariables } from "../shared/variablePersistence";
+import { ApiClientFeatureContext } from "../apiClientFeatureContext/apiClientFeatureContext.store";
+import { TreeChanged } from "features/apiClient/helpers/apiClientTreeBus/apiClientTreeBus";
+import { generateKeyValuePairs, isHttpApiRecord } from "features/apiClient/screens/apiClient/utils";
+
+function getFilesFromRecord(record: RQAPI.ApiClientRecord) {
+  const files: Record<FileId, ApiClientFile> = {};
+  const canHaveFiles =
+    record.type === RQAPI.RecordType.API &&
+    isHttpApiRecord(record) &&
+    record.data.request.contentType === RequestContentType.MULTIPART_FORM;
+
+  if (!canHaveFiles) {
+    return;
+  }
+
+  let requestBody = record.data.request.body as RQAPI.MultipartFormBody;
+
+  if (!requestBody) {
+    return;
+  }
+
+  // hotfix for existing requests
+  if (!Array.isArray(requestBody)) {
+    requestBody = generateKeyValuePairs(requestBody);
+  }
+
+  for (const bodyEntry of requestBody) {
+    const bodyValue = bodyEntry.value as RQAPI.FormDataKeyValuePair["value"];
+    if (Array.isArray(bodyValue)) {
+      bodyValue?.forEach((file) => {
+        files[file.id] = {
+          name: file.name,
+          path: file.path,
+          source: file.source,
+          size: file.size,
+          isFileValid: true,
+          fileFeature: FileFeature.FILE_BODY,
+        };
+      });
+    }
+  }
+
+  return files;
+}
+
+function parseRecordsToFiles(records: RQAPI.ApiClientRecord[]) {
+  let files: Record<FileId, ApiClientFile> = {};
+  for (const record of records) {
+    const filesFromRecord = getFilesFromRecord(record);
+    if (filesFromRecord) {
+      files = { ...files, ...filesFromRecord };
+    }
+  }
+
+  return files;
+}
 
 type BaseRecordState = {
   type: RQAPI.RecordType;
@@ -20,7 +78,8 @@ export type ApiRecordState = BaseRecordState & {
 export type CollectionRecordState = BaseRecordState & {
   type: RQAPI.RecordType.COLLECTION;
   record: RQAPI.CollectionRecord;
-  collectionVariables: StoreApi<VariablesState>;
+  collectionVariables: StoreApi<EnvVariableState>;
+  persistence: PersistedVariables.Store;
 };
 
 export type RecordState = ApiRecordState | CollectionRecordState;
@@ -51,6 +110,7 @@ export type ApiRecordsState = {
   indexStore: Map<string, StoreApi<RecordState>>;
 
   getParentChain: (id: string) => string[];
+  getAllChildren: (id: string) => string[];
 
   /**
    * It updates the version of children of given entity. Meaning any component relying on version
@@ -80,7 +140,7 @@ export type ApiRecordsState = {
   updateCollectionVariables: (variables: CollectionVariableMap) => void;
 };
 
-function getAllChildren(initalId: string, childParentMap: Map<string, string>) {
+export function getAllChildren(initalId: string, childParentMap: Map<string, string>) {
   const result: string[] = [];
   const getImmediateChildren = (id: string) =>
     Array.from(childParentMap.entries())
@@ -112,7 +172,7 @@ function parseRecords(records: RQAPI.ApiClientRecord[]) {
   };
 }
 
-export const createRecordStore = (record: RQAPI.ApiClientRecord) => {
+export const createRecordStore = (record: RQAPI.ApiClientRecord, contextId: string = "private") => {
   return create<CollectionRecordState | ApiRecordState>()((set, get) => {
     const baseRecordState: BaseRecordState = {
       type: record.type,
@@ -133,13 +193,18 @@ export const createRecordStore = (record: RQAPI.ApiClientRecord) => {
       },
     };
 
-    //The following are verified casts, done to prevent redundant code.
     if (record.type === RQAPI.RecordType.API) {
       return baseRecordState as ApiRecordState;
     }
+
+    const variablesStore = PersistedVariables.createCollectionVariablesStore(
+      contextId,
+      record.id,
+      record.data?.variables
+    );
     return {
       ...baseRecordState,
-      collectionVariables: createVariablesStore({ variables: record.data?.variables ?? {} }),
+      collectionVariables: variablesStore,
     } as CollectionRecordState;
   });
 };
@@ -153,10 +218,13 @@ function createIndexStore(index: ApiRecordsState["index"]) {
   return indexStore;
 }
 
-export const createApiRecordsStore = (initialRecords: {
-  records: RQAPI.ApiClientRecord[];
-  erroredRecords: ErroredRecord[];
-}) => {
+export const createApiRecordsStore = (
+  context: ApiClientFeatureContext,
+  initialRecords: {
+    records: RQAPI.ApiClientRecord[];
+    erroredRecords: ErroredRecord[];
+  }
+) => {
   const { childParentMap: initialChildParentMap, index: initialIndex } = parseRecords(initialRecords.records);
   return create<ApiRecordsState>()((set, get) => ({
     apiClientRecords: initialRecords.records,
@@ -183,6 +251,13 @@ export const createApiRecordsStore = (initialRecords: {
         }
       }
 
+      // We initimate the file store to sync with updated records.
+      // This is not performant, as we'd want to provide granular updates
+      // so that the file store is only contacted with changed records.
+      // This works out only because there's no reactive field in the file store
+      // and frequent resetting doesn't cause any renders.
+      // TODO: Send patches to file store
+      apiClientFileStore.getState().replace(parseRecordsToFiles(records), FileFeature.FILE_BODY);
       set({
         apiClientRecords: records,
         childParentMap,
@@ -235,15 +310,24 @@ export const createApiRecordsStore = (initialRecords: {
     addNewRecord(record) {
       const updatedRecords = [...get().apiClientRecords, record];
       get().refresh(updatedRecords);
+      context.treeBus.emit(new TreeChanged(record.id));
     },
 
     addNewRecords(records) {
       const updatedRecords = [...get().apiClientRecords, ...records];
       get().refresh(updatedRecords);
+      updatedRecords.forEach((r) => context.treeBus.emit(new TreeChanged(r.id)));
     },
 
     updateRecord(patch) {
-      const updatedRecords = get().apiClientRecords.map((r) => (r.id === patch.id ? { ...r, ...patch } : r));
+      const existingRecords = get().apiClientRecords;
+
+      const existingCollectionId = existingRecords.find((r) => r.id === patch.id)?.collectionId;
+      const newCollectionId = patch.collectionId;
+
+      const treeBusEmitEffect = context.treeBus.getEmitEffect(new TreeChanged(patch.id));
+
+      const updatedRecords = existingRecords.map((r) => (r.id === patch.id ? { ...r, ...patch } : r));
       get().refresh(updatedRecords);
 
       const recordStore = get().getRecordStore(patch.id);
@@ -255,6 +339,11 @@ export const createApiRecordsStore = (initialRecords: {
       const { updateRecordState } = recordStore.getState();
       updateRecordState(patch);
       get().triggerUpdateForChildren(patch.id);
+
+      if (existingCollectionId !== newCollectionId) {
+        treeBusEmitEffect();
+        context.treeBus.emit(new TreeChanged(patch.id));
+      }
     },
 
     updateRecords(patches) {
@@ -267,6 +356,10 @@ export const createApiRecordsStore = (initialRecords: {
       const updatedRecordMap = new Map(updatedRecords.map((r) => [r.id, r]));
       for (const patch of patches) {
         const updatedRecord = updatedRecordMap.get(patch.id);
+        const existingCollectionId = updatedRecord?.collectionId;
+        const newCollectionId = patch?.collectionId;
+        const treeBusEmitEffect = context.treeBus.getEmitEffect(new TreeChanged(patch.id));
+
         if (updatedRecord) {
           const recordStore = get().getRecordStore(patch.id);
 
@@ -277,6 +370,11 @@ export const createApiRecordsStore = (initialRecords: {
           const { updateRecordState } = recordStore.getState();
           updateRecordState(patch);
           get().triggerUpdateForChildren(patch.id);
+
+          if (existingCollectionId !== newCollectionId) {
+            treeBusEmitEffect();
+            context.treeBus.emit(new TreeChanged(patch.id));
+          }
         }
       }
     },
@@ -286,14 +384,19 @@ export const createApiRecordsStore = (initialRecords: {
       for (const [recordId, newData] of Object.entries(variables)) {
         const record = indexStore.get(recordId)?.getState();
         if (record && record.type === RQAPI.RecordType.COLLECTION) {
-          record.collectionVariables.getState().reset(parseVariables(newData.variables ?? {}));
+          record.collectionVariables.getState().resetSyncValues(parseEnvVariables(newData.variables));
         }
       }
     },
 
     deleteRecords(recordIds) {
+      const treeBusEmitEffect = recordIds.map((recordId) => context.treeBus.getEmitEffect(new TreeChanged(recordId)));
+
       const updatedRecords = get().apiClientRecords.filter((r) => !recordIds.includes(r.id));
+
       get().refresh(updatedRecords);
+
+      treeBusEmitEffect.forEach((emit) => emit());
     },
 
     getRecordStore(id) {
@@ -305,5 +408,7 @@ export const createApiRecordsStore = (initialRecords: {
     getAllRecords() {
       return get().apiClientRecords;
     },
+
+    getAllChildren: (id: string) => getAllChildren(id, get().childParentMap),
   }));
 };

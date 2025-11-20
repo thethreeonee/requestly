@@ -1,8 +1,10 @@
-import { EnvironmentVariableType, EnvironmentVariableValue } from "backend/environment/types";
+import { EnvironmentVariableType } from "backend/environment/types";
 import { KeyValuePair, RequestContentType, RequestMethod, RQAPI } from "features/apiClient/types";
 import { Bruno } from "./types";
 import { Authorization } from "../apiClient/components/views/components/request/components/AuthorizationView/types/AuthConfig";
 import { ApiClientRecordsInterface } from "features/apiClient/helpers/modules/sync/interfaces";
+import { EnvironmentVariableData } from "features/apiClient/store/variables/types";
+import { createBodyContainer } from "../apiClient/utils";
 
 export const processBrunoScripts = (request: Bruno.Request) => {
   const scripts = {
@@ -106,6 +108,7 @@ const createApiRecord = (
         queryParams: processParams(request.params),
         headers: processParams(request.headers),
         body: requestBody,
+        bodyContainer: createBodyContainer({ contentType, body: requestBody }),
         contentType,
       },
       response: null,
@@ -127,10 +130,11 @@ const createCollectionRecord = (
 
   const variables = allVars.reduce((acc, v, index) => {
     if (v.enabled && v.name) {
-      const varValue: EnvironmentVariableValue = {
+      const varValue: EnvironmentVariableData = {
         id: index,
         syncValue: v.value,
         type: v.type || EnvironmentVariableType.String,
+        isPersisted: true,
       };
 
       if (v.local) {
@@ -140,7 +144,7 @@ const createCollectionRecord = (
       acc[v.name] = varValue;
     }
     return acc;
-  }, {} as Record<string, EnvironmentVariableValue>);
+  }, {} as Record<string, EnvironmentVariableData>);
 
   return {
     id,
@@ -163,7 +167,7 @@ export const processBrunoCollectionData = (
   apis: Partial<RQAPI.ApiRecord>[];
   environments: {
     name: string;
-    variables: Record<string, EnvironmentVariableValue>;
+    variables: Record<string, EnvironmentVariableData>;
   }[];
 } => {
   const environments = (fileContent.environments || []).map((env) => ({
@@ -174,10 +178,11 @@ export const processBrunoCollectionData = (
           id: index,
           syncValue: variable.value,
           type: variable.type || EnvironmentVariableType.String,
+          isPersisted: true,
         };
       }
       return acc;
-    }, {} as Record<string, EnvironmentVariableValue>),
+    }, {} as Record<string, EnvironmentVariableData>),
   }));
 
   const processItems = (

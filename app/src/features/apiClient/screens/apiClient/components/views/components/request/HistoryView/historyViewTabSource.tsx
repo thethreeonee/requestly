@@ -12,6 +12,7 @@ export class HistoryViewTabSource extends BaseTabSource {
       id: "history",
       name: "history",
       title: "History",
+      context: {},
     };
     this.urlPath = `${PATHS.API_CLIENT.ABSOLUTE}/${this.metadata.name}`;
     this.icon = <MdOutlineHistory />;
@@ -19,5 +20,9 @@ export class HistoryViewTabSource extends BaseTabSource {
 
   static create(matchedPath: MatchedTabSource["matchedPath"]): HistoryViewTabSource {
     return new HistoryViewTabSource();
+  }
+
+  getIsValidTab(): boolean {
+    return true;
   }
 }

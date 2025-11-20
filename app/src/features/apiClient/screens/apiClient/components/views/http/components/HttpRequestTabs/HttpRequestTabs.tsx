@@ -14,6 +14,8 @@ import { isFeatureCompatible } from "utils/CompatibilityUtils";
 import FEATURES from "config/constants/sub/features";
 import { Checkbox } from "antd";
 import { RequestTabLabel } from "../../../components/request/components/ApiClientRequestTabs/components/RequestTabLabel/RequestTabLabel";
+import { PathVariableTable } from "../PathVariableTable";
+import { usePathVariablesStore } from "features/apiClient/hooks/usePathVariables.store";
 
 export enum RequestTab {
   QUERY_PARAMS = "query_params",
@@ -24,46 +26,68 @@ export enum RequestTab {
 }
 
 interface Props {
+  error: RQAPI.ExecutionError;
   requestEntry: RQAPI.HttpApiEntry;
   requestId: RQAPI.ApiRecord["id"];
   collectionId: string;
   setRequestEntry: (updater: (prev: RQAPI.HttpApiEntry) => RQAPI.HttpApiEntry) => void;
   setContentType: (contentType: RequestContentType) => void;
   handleAuthChange: (newAuth: RQAPI.Auth) => void;
+  focusPostResponseScriptEditor?: boolean;
+  scriptEditorVersion?: number;
 }
 
 const HttpRequestTabs: React.FC<Props> = ({
+  error,
   requestEntry,
   requestId,
   collectionId,
   setRequestEntry,
   setContentType,
   handleAuthChange,
+  focusPostResponseScriptEditor,
+  scriptEditorVersion,
 }) => {
   const showCredentialsCheckbox = useFeatureValue("api-client-include-credentials", false);
 
   const isRequestBodySupported = supportsRequestBody(requestEntry.request.method);
 
   const queryParams = useQueryParamStore((state) => state.queryParams);
+  const pathVariables = usePathVariablesStore((state) => state.pathVariables);
+
+  const hasScriptError = error?.type === RQAPI.ApiClientErrorType.SCRIPT;
+  
 
   const items = useMemo(() => {
     return [
       {
         key: RequestTab.QUERY_PARAMS,
-        label: <RequestTabLabel label="Query Params" count={queryParams.length} />,
+        label: <RequestTabLabel label="Params" count={queryParams.length || pathVariables.length} showDot={true} />,
         children: (
-          <QueryParamsTable
-            recordId={requestId}
-            onQueryParamsChange={(newParams) => {
-              setRequestEntry((prev) => ({
-                ...prev,
-                request: {
-                  ...prev.request,
-                  queryParams: newParams,
-                },
-              }));
-            }}
-          />
+          <>
+            <div className="params-table-title">Query Params</div>
+            <QueryParamsTable
+              recordId={requestId}
+              onQueryParamsChange={(newParams) => {
+                setRequestEntry((prev) => ({
+                  ...prev,
+                  request: {
+                    ...prev.request,
+                    queryParams: newParams,
+                  },
+                }));
+              }}
+            />
+            <PathVariableTable
+              recordId={requestId}
+              onChange={(newVariables) => {
+                setRequestEntry((prev) => ({
+                  ...prev,
+                  request: { ...prev.request, pathVariables: newVariables },
+                }));
+              }}
+            />
+          </>
         ),
       },
       {
@@ -125,21 +149,25 @@ const HttpRequestTabs: React.FC<Props> = ({
         label: (
           <RequestTabLabel
             label="Scripts"
+            dotIndicator={hasScriptError ? "error" : "success"}
             showDot={true}
             count={requestEntry.scripts?.postResponse?.length || requestEntry.scripts?.preRequest?.length}
           />
         ),
         children: (
           <ScriptEditor
+            key={`${scriptEditorVersion}`}
             scripts={requestEntry.scripts}
             onScriptsChange={(newScripts) => {
               setRequestEntry((prev) => ({ ...prev, scripts: newScripts }));
             }}
+            focusPostResponse={focusPostResponseScriptEditor}
           />
         ),
       },
     ];
   }, [
+    hasScriptError,
     requestId,
     collectionId,
     handleAuthChange,
@@ -153,6 +181,9 @@ const HttpRequestTabs: React.FC<Props> = ({
     requestEntry.scripts,
     setContentType,
     setRequestEntry,
+    pathVariables.length,
+    focusPostResponseScriptEditor,
+    scriptEditorVersion,
   ]);
 
   return (

@@ -7,9 +7,16 @@
   color: var(--requestly-color-text-default);
   font-size: var(--requestly-font-size-xs, 11px);
   max-width: 145px;
-  background-color: var(--requestly-color-background);
+  background-color: transparent;
   border: none;
   padding: 0.5em 1em;
+
+  .ant-typography {
+    max-width: 95px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+  }
 
   & > span {
     position: relative;
@@ -19,15 +26,58 @@
   svg {
     position: relative;
     bottom: 0.5px;
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     color: var(--requestly-color-text-default);
+    flex-shrink: 0;
+  }
+
+  .environment-icon {
+    display: none;
+
+    svg {
+      color: var(--requestly-color-text-subtle);
+      font-size: var(--requestly-font-size-md, 14px);
+    }
   }
 
   &:hover,
   &:focus,
   &:active {
     border: none;
+  }
+
+  .no-environment-button-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    .no-environment-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      svg {
+        position: static;
+        bottom: auto;
+        width: 11px;
+        height: 11px;
+        color: var(--requestly-color-text-subtle);
+      }
+    }
+  }
+
+  .no-environment-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--requestly-font-size-xs, 11px);
+    color: var(--requestly-color-text-subtle);
+    padding: 0 4px;
+
+    svg {
+      font-size: var(--requestly-font-size-md, 14px);
+    }
   }
 }
 
@@ -38,11 +88,13 @@
     border: 1px solid var(--requestly-color-white-t-10, rgba(255, 255, 255, 0.06));
     box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.16);
     max-height: 498px;
-    overflow: scroll;
+    overflow-y: auto;
+    padding-left: 4px;
+    padding-right: 4px;
 
     li.ant-dropdown-menu-item {
       padding: 0;
-      margin-right: 0;
+      margin: 0;
 
       .ant-dropdown-menu-title-content {
         width: 100%;
@@ -61,6 +113,28 @@
         svg {
           font-size: 1rem;
           flex-shrink: 0;
+          width: 13px;
+          height: 13px;
+        }
+
+        &.no-env-item {
+          display: flex;
+          gap: 4px;
+
+          .no-env-icon {
+            display: flex;
+            align-items: center;
+            margin-right: 4px;
+
+            svg {
+              font-size: 16px;
+              color: var(--requestly-color-text-subtle);
+            }
+          }
+
+          .ant-typography {
+            flex: 1;
+          }
         }
       }
 
@@ -69,21 +143,16 @@
       }
     }
 
-    .ant-dropdown-menu-item:not(:first-child) {
-      margin-top: 8px;
+    .ant-dropdown-menu-item {
+      &:not(:first-child) {
+        margin-top: 4px;
+      }
     }
-  }
-}
 
-.no-environment-container {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--requestly-font-size-xs, 11px);
-  color: var(--requestly-color-text-subtle);
-  padding: 0 4px;
-
-  svg {
-    font-size: var(--requestly-font-size-md, 14px);
+    .ant-dropdown-menu-item-divider {
+      margin: 4px 0;
+      background-color: var(--requestly-color-white-t-10, rgba(255, 255, 255, 0.06));
+      height: 1px;
+    }
   }
 }

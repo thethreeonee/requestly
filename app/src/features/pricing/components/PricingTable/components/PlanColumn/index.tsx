@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getUserAuthDetails } from "store/slices/global/user/selectors";
 import { useSelector } from "react-redux";
 import { Col, Row, Space, Tooltip, Typography } from "antd";
@@ -51,6 +51,13 @@ export const PlanColumn: React.FC<PlanColumnProps> = ({
     () => shouldShowNewCheckoutFlow(isBrowserstackIntegrationOn, isBrowserstackCheckoutEnabled),
     [isBrowserstackIntegrationOn, isBrowserstackCheckoutEnabled]
   );
+
+  useEffect(() => {
+    //is user logs out set quantity to 1, it will reset the pricing according to 1
+    if (!user.loggedIn) {
+      setQuantity(1);
+    }
+  }, [user.loggedIn]);
 
   const getHeaderPlanName = () => {
     const pricingPlansOrder = [
@@ -321,7 +328,7 @@ export const PlanColumn: React.FC<PlanColumnProps> = ({
             return (
               <div className={`text-left plan-feature-item ${feature.tooltip ? "underlined" : ""}`} key={index}>
                 {feature.enabled ? <img src={"/assets/media/common/check.svg"} alt="check" /> : <CloseOutlined />}{" "}
-                <Tooltip title={feature?.tooltip} color="var(--black)">
+                <Tooltip title={feature?.tooltip} color="var(--requestly-color-black)">
                   <span className={`${feature?.tooltip ? "plan-feature-underline" : ""}`}>{feature.title}</span>
                 </Tooltip>
               </div>
@@ -349,7 +356,7 @@ export const PlanColumn: React.FC<PlanColumnProps> = ({
             Get Requestly free for 1 year!
           </a>
           <Tooltip
-            color="var(--black)"
+            color="var(--requestly-color-black)"
             title="Unlimited access, no cost, no commitment — perfect for individuals and teams evaluating their next API tool."
           >
             <MdOutlineHelpOutline className="info-icon" />

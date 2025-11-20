@@ -13,15 +13,15 @@ import moment from "moment";
 import { getAndUpdateInstallationDate } from "utils/Misc";
 import Logger from "lib/logger";
 import { getUserSubscription } from "backend/user/userSubscription";
-import { newSchemaToOldSchemaAdapter } from "./DbListenerInit/userSubscriptionDocListener";
+import { preparePlan } from "./DbListenerInit/userSubscriptionDocListener";
 import APP_CONSTANTS from "config/constants";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { getUser } from "backend/user/getUser";
 import { CONSTANTS as GLOBAL_CONSTANTS } from "@requestly/requestly-core";
-import { StorageService } from "init";
 import { isAppOpenedInIframe } from "utils/AppUtils";
 import { getEmailType } from "utils/mailCheckerUtils";
 import { EmailType } from "@requestly/shared/types/common";
+import { clientStorageService } from "services/clientStorageService";
 
 const TRACKING = APP_CONSTANTS.GA_EVENTS;
 let hasAuthHandlerBeenSet = false;
@@ -119,8 +119,7 @@ const AuthHandler: React.FC<{}> = () => {
 
         emailTypeRef.current = mailType;
 
-        // phase-1 migration: Adaptor to convert firestore schema into old schema
-        const planDetails = newSchemaToOldSchemaAdapter(firestorePlanDetails);
+        const planDetails = preparePlan(firestorePlanDetails);
         const isUserPremium = isPremiumUser(planDetails);
 
         window.isSyncEnabled = isSyncEnabled;
@@ -242,7 +241,7 @@ const AuthHandler: React.FC<{}> = () => {
 
       if (user) {
         Logger.timeLog("AuthHandler-preloader", "User found");
-        StorageService(appMode).saveRecord({
+        clientStorageService.saveStorageObject({
           [GLOBAL_CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN]: user.refreshToken,
         });
 
@@ -260,12 +259,15 @@ const AuthHandler: React.FC<{}> = () => {
         window.isSyncEnabled = null;
         window.keySetDoneisSyncEnabled = true;
         localStorage.removeItem("__rq_uid");
-        StorageService(appMode).removeRecord(GLOBAL_CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN);
+        clientStorageService.removeStorageObject(GLOBAL_CONSTANTS.STORAGE_KEYS.REFRESH_TOKEN);
         // set amplitude anon id to local storage:
-
+        const planDetails = preparePlan();
         dispatch(
-          // @ts-ignore
-          globalActions.updateUserInfo({ loggedIn: false, details: null })
+          globalActions.updateUserInfo({
+            loggedIn: false,
+            // @ts-ignore
+            details: planDetails ? { planDetails, isPremium: isPremiumUser(planDetails) } : null,
+          })
         );
         dispatch(
           globalActions.updateInitializations({

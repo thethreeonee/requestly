@@ -3,7 +3,7 @@ import type { TableProps } from "antd";
 import { ContentListTable } from "componentsV2/ContentList";
 import { MdAdd } from "@react-icons/all-files/md/MdAdd";
 import { RQButton } from "lib/design-system-v2/components";
-import { EditableRow, EditableCell } from "./KeyValueTableRow";
+import { KeyValueTableEditableRow, KeyValueTableEditableCell } from "./KeyValueTableRow";
 import { KeyValuePair } from "features/apiClient/types";
 import { RiDeleteBin6Line } from "@react-icons/all-files/ri/RiDeleteBin6Line";
 import "./keyValueTable.scss";
@@ -137,6 +137,7 @@ export const KeyValueTable: React.FC<KeyValueTableProps> = ({
       {
         title: "",
         width: "50px",
+        fixed: "right",
         render: (_: any, record: KeyValuePair) => {
           if (record.key === "" && record.value === "" && data.length === 1) {
             return null;
@@ -168,11 +169,11 @@ export const KeyValueTable: React.FC<KeyValueTableProps> = ({
       locale={{ emptyText: `No entries found` }}
       components={{
         body: {
-          row: EditableRow,
-          cell: EditableCell,
+          row: KeyValueTableEditableRow,
+          cell: KeyValueTableEditableCell,
         },
       }}
-      scroll={{ x: true }}
+      scroll={{ x: 550 }}
       footer={() => (
         <div className="api-key-value-table-footer">
           <RQButton icon={<MdAdd />} size="small" onClick={handleAddPair}>

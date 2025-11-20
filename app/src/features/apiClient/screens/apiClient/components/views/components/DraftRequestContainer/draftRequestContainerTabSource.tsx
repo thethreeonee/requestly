@@ -18,10 +18,16 @@ export class DraftRequestContainerTabSource extends BaseTabSource {
       id: `${Date.now()}`,
       name: "request",
       title: "Untitled request",
+      context: {},
+      isNewTab: true,
       ...metadata,
     };
     this.component = (
-      <DraftRequestContainer key={this.metadata.id} draftId={this.metadata.id} apiEntryType={metadata?.apiEntryType} />
+      <DraftRequestContainer
+        key={this.metadata.id}
+        draftId={this.metadata.id}
+        apiEntryType={metadata?.apiEntryType ?? RQAPI.ApiEntryType.HTTP}
+      />
     );
     this.urlPath = `${PATHS.API_CLIENT.ABSOLUTE}/${this.metadata.name}/new`;
     this.icon = this.getTabIcon((this.metadata as DraftRequestContainerTabSourceMetadata).apiEntryType);
@@ -44,5 +50,9 @@ export class DraftRequestContainerTabSource extends BaseTabSource {
       default:
         return <MdOutlineSyncAlt />;
     }
+  }
+
+  getIsValidTab(): boolean {
+    return true; // Always a valid tab, on reload we get new draft tab
   }
 }

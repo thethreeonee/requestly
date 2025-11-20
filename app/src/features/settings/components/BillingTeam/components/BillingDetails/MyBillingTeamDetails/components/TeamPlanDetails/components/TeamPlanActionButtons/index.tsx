@@ -7,7 +7,7 @@ import { PRICING } from "features/pricing";
 import { globalActions } from "store/slices/global/slice";
 import { useDispatch } from "react-redux";
 import { useSearchParams } from "react-router-dom";
-import { PlanStatus } from "features/settings/components/BillingTeam/types";
+import { PlanStatus, PlanType } from "features/settings/components/BillingTeam/types";
 import { ChangePlanRequestConfirmationModal } from "features/pricing/components/ChangePlanRequestConfirmationModal";
 import { useCallback, useState } from "react";
 import { getPrettyPlanName } from "utils/FormattingHelper";
@@ -104,15 +104,18 @@ export const TeamPlanActionButtons: React.FC<Props> = ({ subscriptionDetails, is
             className="team-plan-details-card-actions-cancel"
             icon={<MdOutlineCancel />}
             onClick={() => setIsCancelPlanModalOpen(true)}
-            disabled={subscriptionDetails?.cancel_at_period_end}
+            disabled={
+              subscriptionDetails?.cancel_at_period_end || subscriptionDetails?.rqSubscriptionType === PlanType.STUDENT
+            }
           >
             Cancel plan
           </RQButton>
         )}
 
         {!(
-          getPlanNameFromId(subscriptionDetails?.plan) === PRICING.PLAN_NAMES.PROFESSIONAL &&
-          planStatus === PlanStatus.ACTIVE
+          [PRICING.PLAN_NAMES.PROFESSIONAL, PRICING.PLAN_NAMES.ENTERPRISE].includes(
+            getPlanNameFromId(subscriptionDetails?.plan)
+          ) && planStatus === PlanStatus.ACTIVE
         ) && (
           <RQButton
             type="primary"

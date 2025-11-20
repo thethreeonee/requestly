@@ -13,13 +13,10 @@ import { CONTENT_TYPE_HEADER } from "features/apiClient/constants";
 import { BottomSheetPlacement, BottomSheetProvider } from "componentsV2/BottomSheet";
 import "./apiClient.scss";
 import { WindowsAndLinuxGatedHoc } from "componentsV2/WindowsAndLinuxGatedHoc";
-import { ApiRecordsProvider } from "features/apiClient/store/apiRecords/ApiRecordsContextProvider";
 import { AutogenerateProvider } from "features/apiClient/store/autogenerateContextProvider";
-import {
-  ApiClientRepositoryContext,
-  useGetApiClientSyncRepo,
-} from "features/apiClient/helpers/modules/sync/useApiClientSyncRepo";
 import { ClientViewFactory } from "features/apiClient/screens/apiClient/clientView/ClientViewFactory";
+import { ContextId } from "features/apiClient/contexts/contextId.context";
+import { NoopContextId } from "features/apiClient/store/apiClientFeatureContext/apiClientFeatureContext.store";
 
 interface Props {
   request: string | APIClientRequest; // string for cURL request
@@ -59,15 +56,22 @@ export const APIClientModal: React.FC<Props> = ({ request, isModalOpen, onModalC
 
     const entry = getEmptyApiEntry(RQAPI.ApiEntryType.HTTP) as RQAPI.HttpApiEntry;
     entry.type = RQAPI.ApiEntryType.HTTP;
-    const urlObj = new URL(request.url);
-    const searchParams = Object.fromEntries(new URLSearchParams(urlObj.search));
-    urlObj.search = "";
+    try {
+      const urlObj = new URL(request.url);
+      const searchParams = Object.fromEntries(new URLSearchParams(urlObj.search));
+      urlObj.search = "";
 
-    entry.request.url = urlObj.toString();
-    entry.request.queryParams = generateKeyValuePairs(searchParams);
+      entry.request.url = urlObj.toString();
+      entry.request.queryParams = generateKeyValuePairs(searchParams);
+    } catch {
+      // Fails in case of relative urls.
+      // Fallback to just using the url as is.
+      entry.request.url = request.url;
+      entry.request.queryParams = [];
+    }
     entry.request.headers = filterHeadersToImport(generateKeyValuePairs(request.headers));
     entry.request.method = (request.method as RequestMethod) || RequestMethod.GET;
-    entry.request.contentType = getContentTypeFromRequestHeaders(entry.request.headers);
+    entry.request.contentType = getContentTypeFromRequestHeaders(entry.request.headers) ?? RequestContentType.RAW;
 
     if (typeof request.body === "string") {
       entry.request.body = request.body;
@@ -100,9 +104,6 @@ export const APIClientModal: React.FC<Props> = ({ request, isModalOpen, onModalC
     return createDummyApiRecord(entry);
   }, [request]);
 
-  const repository = useGetApiClientSyncRepo();
-  const key = repository.constructor.name;
-
   if (!apiRecord.data) {
     return null;
   }
@@ -120,21 +121,17 @@ export const APIClientModal: React.FC<Props> = ({ request, isModalOpen, onModalC
     >
       <WindowsAndLinuxGatedHoc featureName="API client">
         <BottomSheetProvider defaultPlacement={BottomSheetPlacement.BOTTOM}>
-          <ApiClientRepositoryContext.Provider value={repository} key={key}>
-            <ApiRecordsProvider>
-              <AutogenerateProvider>
-                <div className="api-client-container-content">
-                  <ClientViewFactory
-                    isOpenInModal
-                    apiRecord={apiRecord}
-                    handleRequestFinished={() => {}}
-                    onSaveCallback={() => {}}
-                    isCreateMode={true}
-                  />
-                </div>
-              </AutogenerateProvider>
-            </ApiRecordsProvider>
-          </ApiClientRepositoryContext.Provider>
+          <ContextId id={NoopContextId}>
+            <AutogenerateProvider>
+              <ClientViewFactory
+                isOpenInModal
+                apiRecord={apiRecord}
+                handleRequestFinished={() => {}}
+                onSaveCallback={() => {}}
+                isCreateMode={true}
+              />
+            </AutogenerateProvider>
+          </ContextId>
         </BottomSheetProvider>
       </WindowsAndLinuxGatedHoc>
     </Modal>

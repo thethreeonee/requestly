@@ -7,6 +7,7 @@ import {
   BearerTokenAuthorizationConfig,
 } from "./screens/apiClient/components/views/components/request/components/AuthorizationView/types/AuthConfig";
 import { ErroredRecord } from "./helpers/modules/sync/local/services/types";
+import { ApiClientFile, FileId } from "./store/apiClientFilesStore";
 
 export enum RequestMethod {
   GET = "GET",
@@ -73,6 +74,7 @@ export enum ApiClientImporterType {
   POSTMAN = "POSTMAN",
   BRUNO = "BRUNO",
   CURL = "CURL",
+  OPENAPI = "OPENAPI",
 }
 
 export type CollectionVariableMap = Record<string, { variables: EnvironmentVariables }>;
@@ -96,6 +98,13 @@ export namespace RQAPI {
     POST_RESPONSE = "postResponse",
   }
 
+  export type PathVariable = {
+    id: number;
+    key: string;
+    value: string;
+    description?: string;
+  };
+
   export type RequestBody = RequestJsonBody | RequestRawBody | RequestFormBody | MultipartFormBody; // in case of form data, body will be key-value pairs
   export type RequestJsonBody = string;
   export type RequestRawBody = string;
@@ -110,7 +119,7 @@ export namespace RQAPI {
     value: string | MultipartFileValue[];
   };
 
-  type MultipartFileValue = {
+  export type MultipartFileValue = {
     id: string; // file id for each multipart key value pair
     name: string;
     path: string;
@@ -136,6 +145,7 @@ export namespace RQAPI {
   export type HttpRequest = {
     url: string;
     queryParams: KeyValuePair[];
+    pathVariables?: PathVariable[];
     method: RequestMethod;
     headers: KeyValuePair[];
     body?: RequestBody;
@@ -151,7 +161,7 @@ export namespace RQAPI {
     statusText: string;
     time: number;
     redirectedUrl: string;
-  };
+  } | null;
 
   export type HttpSpec = {
     request: HttpRequest;
@@ -173,7 +183,7 @@ export namespace RQAPI {
     status: number;
     statusText: string;
     time: number;
-  };
+  } | null;
 
   export type ApiEntryMetaData = {
     testResults?: TestResult[];
@@ -312,6 +322,24 @@ export namespace RQAPI {
     SCRIPT = "script",
     MISSING_FILE = "missing_file",
   }
+
+  export type OrderedRequest = { record: ApiRecord; isSelected: boolean };
+
+  export type OrderedRequests = OrderedRequest[];
+
+  export type RunOrder = { id: ApiRecord["id"]; isSelected: boolean }[];
+
+  export type RunConfig = {
+    id: string;
+    runOrder: RunOrder;
+    iterations: number;
+    delay: number;
+    dataFile:
+      | (Omit<ApiClientFile, "isFileValid"> & {
+          id: FileId;
+        })
+      | null;
+  };
 }
 
 export enum PostmanBodyMode {

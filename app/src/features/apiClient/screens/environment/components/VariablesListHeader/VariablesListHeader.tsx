@@ -11,6 +11,7 @@ import { useCommand } from "features/apiClient/commands";
 import "./variablesListHeader.scss";
 import RequestlyIcon from "assets/img/brand/rq_logo.svg";
 import PostmanIcon from "assets/img/brand/postman-icon.svg";
+import { toast } from "utils/Toast";
 
 interface VariablesListHeaderProps {
   searchValue: string;
@@ -43,7 +44,7 @@ export const VariablesListHeader: React.FC<VariablesListHeaderProps> = ({
   const {
     env: { renameEnvironment },
   } = useCommand();
-  const { setTitle, getIsActive, getIsNew } = useGenericState();
+  const { setTitle, getIsActive, getIsNew, setIsNew } = useGenericState();
   const enableHotKey = getIsActive();
   const isNewEnvironment = getIsNew();
 
@@ -54,7 +55,7 @@ export const VariablesListHeader: React.FC<VariablesListHeaderProps> = ({
       await renameEnvironment({ environmentId, newName: updatedName });
       setTitle(updatedName);
     } catch (error) {
-      // NOOP
+      toast.error(error.message || "Could not rename environment!");
     }
   };
 
@@ -66,7 +67,10 @@ export const VariablesListHeader: React.FC<VariablesListHeaderProps> = ({
             autoFocus={isNewEnvironment}
             placeholder="New Environment"
             recordName={currentEnvironmentName}
-            onBlur={handleNewEnvironmentNameChange}
+            onBlur={(newName) => {
+              handleNewEnvironmentNameChange(newName);
+              setIsNew(false);
+            }}
             disabled={isGlobalEnvironment(environmentId)}
             defaultBreadcrumbs={[
               { label: "API Client", pathname: PATHS.API_CLIENT.INDEX },
@@ -89,6 +93,11 @@ export const VariablesListHeader: React.FC<VariablesListHeaderProps> = ({
           className="variables-list-search-input"
           value={searchValue}
           onChange={(e) => onSearchValueChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              onSearchValueChange("");
+            }
+          }}
         />
 
         <div className="variables-list-btn-actions-container">

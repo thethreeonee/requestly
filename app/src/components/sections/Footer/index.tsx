@@ -1,15 +1,33 @@
 import React, { useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { Typography, Row, Col } from "antd";
-import { ReadOutlined, CalendarOutlined, ApiOutlined } from "@ant-design/icons";
-import { FaYCombinator } from "@react-icons/all-files/fa/FaYCombinator";
+import { useDispatch } from "react-redux";
+import { Typography, Row, Col, Dropdown, MenuProps } from "antd";
+import { ReadOutlined, QuestionCircleOutlined } from "@ant-design/icons";
+import { PiBookOpenTextBold } from "@react-icons/all-files/pi/PiBookOpenTextBold";
+import { RiVideoLine } from "@react-icons/all-files/ri/RiVideoLine";
+import { MdOutlineHistory } from "@react-icons/all-files/md/MdOutlineHistory";
+import { HiOutlineSparkles } from "@react-icons/all-files/hi2/HiOutlineSparkles";
+import { FiGithub } from "@react-icons/all-files/fi/FiGithub";
+import { FiMail } from "@react-icons/all-files/fi/FiMail";
+import { PiChatTextBold } from "@react-icons/all-files/pi/PiChatTextBold";
+import { globalActions } from "store/slices/global/slice";
 import { redirectToUrl } from "utils/RedirectionUtils";
 import APP_CONSTANTS from "config/constants";
 import { Footer } from "antd/lib/layout/layout";
 import { trackFooterClicked } from "modules/analytics/events/common/onboarding/footer";
 import { getExtensionVersion, isExtensionInstalled } from "actions/ExtensionActions";
-import "./Footer.css";
 import { getAppVersion, isAppInstalled } from "actions/DesktopActions";
+import "./Footer.css";
+
+enum FOOTER_LINKS {
+  DOCUMENTATION = "Documentation",
+  TUTORIALS = "Tutorials",
+  CHANGELOG = "Changelog",
+  AI_ASSISTANT = "AI Assistant",
+  BUGS_FEATURE_REQUEST = "Bugs & feature request",
+  BILLING_ACCOUNT_QUERIES = "Billing & account queries",
+  CONTACT_SALES = "Contact sales",
+}
 
 const { Text } = Typography;
 const { PATHS } = APP_CONSTANTS;
@@ -17,57 +35,97 @@ const PAGES_WITHOUT_FOOTER = [PATHS.SETTINGS.RELATIVE];
 
 const AppFooter: React.FC = () => {
   const { pathname } = useLocation();
-  const SHOW_YC_BRANDING = false;
+  const dispatch = useDispatch();
 
-  const footerLinksConfig = useMemo(
-    () => ({
-      "Book a demo": {
-        link: APP_CONSTANTS.LINKS.BOOK_A_DEMO,
-        icons: <CalendarOutlined />,
+  const helpItems: MenuProps["items"] = useMemo(() => {
+    return [
+      {
+        type: "group",
+        label: "Learn & Explore",
+        children: [
+          {
+            label: FOOTER_LINKS.DOCUMENTATION,
+            key: FOOTER_LINKS.DOCUMENTATION,
+            icon: <PiBookOpenTextBold />,
+            onClick: () => {
+              handleFooterLinkClick(APP_CONSTANTS.LINKS.REQUESTLY_DOCS, FOOTER_LINKS.DOCUMENTATION);
+            },
+          },
+          {
+            label: FOOTER_LINKS.TUTORIALS,
+            key: FOOTER_LINKS.TUTORIALS,
+            icon: <RiVideoLine />,
+            onClick: () => {
+              handleFooterLinkClick(APP_CONSTANTS.LINKS.YOUTUBE_API_CLIENT_TUTORIALS, FOOTER_LINKS.TUTORIALS);
+            },
+          },
+          {
+            label: FOOTER_LINKS.CHANGELOG,
+            key: FOOTER_LINKS.CHANGELOG,
+            icon: <MdOutlineHistory />,
+            onClick: () => {
+              handleFooterLinkClick(APP_CONSTANTS.LINKS.CHANGELOG, FOOTER_LINKS.CHANGELOG);
+            },
+          },
+        ],
       },
-      Documentation: {
-        link: APP_CONSTANTS.LINKS.REQUESTLY_DOCS,
-        icons: <ReadOutlined />,
+      {
+        type: "divider",
       },
-      "API documentation": {
-        link: APP_CONSTANTS.LINKS.REQUESTLY_API_DOCS,
-        icons: <ApiOutlined />,
+      {
+        type: "group",
+        label: "Support",
+        children: [
+          {
+            label: FOOTER_LINKS.AI_ASSISTANT,
+            key: FOOTER_LINKS.AI_ASSISTANT,
+            icon: <HiOutlineSparkles />,
+            onClick: () => {
+              dispatch(globalActions.updateRequestBot({ isActive: true, modelType: "app" }));
+              trackFooterClicked(FOOTER_LINKS.AI_ASSISTANT);
+            },
+          },
+          {
+            label: FOOTER_LINKS.BUGS_FEATURE_REQUEST,
+            key: FOOTER_LINKS.BUGS_FEATURE_REQUEST,
+            icon: <FiGithub />,
+            onClick: () => {
+              handleFooterLinkClick(APP_CONSTANTS.LINKS.REQUESTLY_GITHUB_ISSUES, FOOTER_LINKS.BUGS_FEATURE_REQUEST);
+            },
+          },
+          {
+            label: FOOTER_LINKS.BILLING_ACCOUNT_QUERIES,
+            key: FOOTER_LINKS.BILLING_ACCOUNT_QUERIES,
+            icon: <FiMail />,
+            onClick: () => {
+              handleFooterLinkClick(APP_CONSTANTS.LINKS.CONTACT_US, FOOTER_LINKS.BILLING_ACCOUNT_QUERIES);
+            },
+          },
+        ],
       },
-    }),
-    []
-  );
-  const renderFooterLinks = () => {
-    return (
-      <div className="app-footer-links">
-        {Object.entries(footerLinksConfig).map(([key, { link, icons }]) => (
-          <Text
-            key={key}
-            className="cursor-pointer"
-            onClick={() => {
-              trackFooterClicked(key);
-              redirectToUrl(link, true);
-            }}
-          >
-            <span className="icon__wrapper">{icons}</span>
-            {key}
-          </Text>
-        ))}
-      </div>
-    );
-  };
+      {
+        type: "divider",
+      },
+      {
+        type: "group",
+        label: "Sales & Queries",
+        children: [
+          {
+            label: FOOTER_LINKS.CONTACT_SALES,
+            key: FOOTER_LINKS.CONTACT_SALES,
+            icon: <PiChatTextBold />,
+            onClick: () => {
+              handleFooterLinkClick(APP_CONSTANTS.LINKS.BOOK_A_DEMO, FOOTER_LINKS.CONTACT_SALES);
+            },
+          },
+        ],
+      },
+    ];
+  }, [dispatch]);
 
-  const renderYCBranding = () => {
-    return (
-      <Text>
-        Backed by{" "}
-        <span
-          style={{ color: "orange", cursor: "pointer" }}
-          onClick={() => window.open("https://twitter.com/ycombinator/status/1468968505596776469", "_blank")}
-        >
-          <FaYCombinator className="fix-icon-is-up" /> Combinator
-        </span>
-      </Text>
-    );
+  const handleFooterLinkClick = (link: string, key: string) => {
+    redirectToUrl(link, true);
+    trackFooterClicked(key);
   };
 
   if (PAGES_WITHOUT_FOOTER.some((path) => pathname.includes(path))) return null;
@@ -81,7 +139,22 @@ const AppFooter: React.FC = () => {
             {isAppInstalled() && <span className="extension-version">v{getAppVersion()}</span>}
           </div>
 
-          <Col className="ml-auto">{SHOW_YC_BRANDING ? renderYCBranding() : renderFooterLinks()}</Col>
+          <Col className="ml-auto">
+            <div className="app-footer-links">
+              <Text
+                onClick={() => handleFooterLinkClick(APP_CONSTANTS.LINKS.REQUESTLY_DOCS, FOOTER_LINKS.DOCUMENTATION)}
+              >
+                <ReadOutlined />
+                Documentation
+              </Text>
+              <Dropdown trigger={["click"]} menu={{ items: helpItems }}>
+                <Text>
+                  <QuestionCircleOutlined />
+                  Help
+                </Text>
+              </Dropdown>
+            </div>
+          </Col>
         </Row>
       </Footer>
     </>

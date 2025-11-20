@@ -1,5 +1,4 @@
 .homepage-wrapper {
-  background-color: var(--requestly-color-background);
   display: flex;
   justify-content: center;
   height: 100%;
@@ -209,7 +208,7 @@
   height: 100%;
 
   & .ant-spin-text {
-    color: var(--white);
+    color: var(--requestly-color-text-default);
     margin-top: 8px;
     font-weight: 500;
     font-size: 13px;

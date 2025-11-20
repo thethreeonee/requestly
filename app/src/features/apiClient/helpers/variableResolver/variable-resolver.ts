@@ -1,26 +1,39 @@
-import { EnvironmentVariableKey, EnvironmentVariableValue, VariableScope } from "backend/environment/types";
+import { VariableScope } from "backend/environment/types";
 import { NativeError } from "errors/NativeError";
 import { VariablesState } from "features/apiClient/store/variables/variables.store";
 import { RQAPI } from "features/apiClient/types";
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StoreApi } from "zustand";
-import {
-  AllApiClientStores,
-  ApiRecordsStoreContext,
-} from "features/apiClient/store/apiRecords/ApiRecordsContextProvider";
+import { AllApiClientStores } from "features/apiClient/store/apiRecords/ApiRecordsContextProvider";
 import { useActiveEnvironment } from "features/apiClient/hooks/useActiveEnvironment.hook";
 import { useApiRecordState } from "features/apiClient/hooks/useApiRecordState.hook";
+import { VariableData, VariableKey } from "features/apiClient/store/variables/types";
+import { runtimeVariablesStore as _runtimeVariablesStore } from "features/apiClient/store/runtimeVariables/runtimeVariables.store";
+import { useApiClientFeatureContext } from "features/apiClient/contexts/meta";
 
-type VariableSource = {
+export type VariableSource = {
   scope: VariableScope;
   scopeId: string;
   name: string;
   level: number;
 };
 
-export type ScopedVariable = [EnvironmentVariableValue, VariableSource];
-export type ScopedVariables = Map<EnvironmentVariableKey, ScopedVariable>;
-type Scope = [VariableSource, StoreApi<VariablesState>];
+export type ScopedVariable = [VariableData, VariableSource];
+
+export type Scope = [VariableSource, StoreApi<VariablesState>];
+
+export type ScopedVariables = Map<VariableKey, ScopedVariable>;
+
+/**
+ * Configuration for overriding store reads with execution context values.
+ * This allows deriving scopes from passed data instead of reading from stores.
+ */
+export type StoreOverrideConfig = {
+  runtimeVariablesStore?: StoreApi<VariablesState>;
+  activeEnvironmentVariablesStore?: StoreApi<VariablesState>;
+  globalEnvironmentVariablesStore?: StoreApi<VariablesState>;
+  collectionVariablesStore?: StoreApi<VariablesState>;
+};
 
 /**
  * This class is used to maintains and store variables, keeping in check that scopes that are higher in chain
@@ -77,9 +90,14 @@ export class VariableHolder {
   }
 }
 
-function getScopes(parents: string[], stores: AllApiClientStores): Scope[] {
-  const scopes: [VariableSource, StoreApi<VariablesState>][] = [];
-  let currentScopeLevel = 0;
+function getScopes(
+  parents: string[],
+  stores: AllApiClientStores,
+  initialScopes: Scope[] = [],
+  storeOverrideConfig?: StoreOverrideConfig
+): Scope[] {
+  let currentScopeLevel = initialScopes.length;
+  const scopes: Scope[] = [...initialScopes];
   const {
     activeEnvironment: activeEnvironmentStore,
     globalEnvironment: globalEnvironmentStore,
@@ -88,7 +106,27 @@ function getScopes(parents: string[], stores: AllApiClientStores): Scope[] {
   const activeEnvironment = activeEnvironmentStore?.getState();
   const globalEnvironment = globalEnvironmentStore.getState();
 
+  const activeEnvironmentVariablesStore =
+    storeOverrideConfig?.activeEnvironmentVariablesStore ?? activeEnvironment?.data.variables;
+  const globalEnvironmentVariablesStore =
+    storeOverrideConfig?.globalEnvironmentVariablesStore ?? globalEnvironment.data.variables;
+  const runtimeVariablesStore = storeOverrideConfig?.runtimeVariablesStore ?? _runtimeVariablesStore;
+  const runtimeVariables = runtimeVariablesStore.getState();
+
   const { getRecordStore } = stores.records.getState();
+
+  // 0. Runtime Variables
+  if (runtimeVariables) {
+    scopes.push([
+      {
+        scope: VariableScope.RUNTIME,
+        scopeId: "runtime",
+        name: "Runtime Variables",
+        level: currentScopeLevel++,
+      },
+      runtimeVariablesStore,
+    ]);
+  }
 
   //1. Active Envrionment
   if (activeEnvironment) {
@@ -99,7 +137,7 @@ function getScopes(parents: string[], stores: AllApiClientStores): Scope[] {
         name: activeEnvironment.name,
         level: currentScopeLevel++,
       },
-      activeEnvironment.data.variables,
+      activeEnvironmentVariablesStore!,
     ]);
   }
 
@@ -117,7 +155,7 @@ function getScopes(parents: string[], stores: AllApiClientStores): Scope[] {
           name: recordState.record.name,
           level: currentScopeLevel++,
         },
-        recordState.collectionVariables,
+        storeOverrideConfig?.collectionVariablesStore ?? recordState.collectionVariables,
       ]);
     }
   }
@@ -130,7 +168,7 @@ function getScopes(parents: string[], stores: AllApiClientStores): Scope[] {
       name: globalEnvironment.name,
       level: currentScopeLevel++,
     },
-    globalEnvironment.data.variables,
+    globalEnvironmentVariablesStore!,
   ]);
 
   return scopes;
@@ -151,11 +189,16 @@ function readScopesIntoVariableHolder(
   }
 }
 
-export function getScopedVariables(parents: string[], stores: AllApiClientStores) {
+export function getScopedVariables(
+  parents: string[],
+  stores: AllApiClientStores,
+  scopes?: Scope[],
+  storeOverrideConfig?: StoreOverrideConfig
+): ScopedVariables {
   const variableHolder = new VariableHolder();
   readScopesIntoVariableHolder(
     {
-      scopes: getScopes(parents, stores),
+      scopes: getScopes(parents, stores, scopes, storeOverrideConfig),
     },
     variableHolder
   );
@@ -163,8 +206,13 @@ export function getScopedVariables(parents: string[], stores: AllApiClientStores
   return variableHolder.getAll();
 }
 
-export function resolveVariable(key: string, parents: string[], stores: AllApiClientStores) {
-  return getScopedVariables(parents, stores).get(key);
+export function resolveVariable(
+  key: string,
+  parents: string[],
+  stores: AllApiClientStores,
+  storeOverrideConfig?: StoreOverrideConfig
+) {
+  return getScopedVariables(parents, stores, undefined, storeOverrideConfig).get(key);
 }
 
 class VariableEventsManager {
@@ -233,7 +281,7 @@ class VariableEventsManager {
 }
 
 export function useScopedVariables(id: string) {
-  const stores = useContext(ApiRecordsStoreContext);
+  const stores = useApiClientFeatureContext().stores;
   if (!stores) {
     throw new Error("Unable to locate stores!");
   }

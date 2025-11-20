@@ -13,7 +13,7 @@ import HeaderUser from "./HeaderUser";
 import { redirectToSettings } from "utils/RedirectionUtils";
 import { useNavigate } from "react-router-dom";
 import { isSafariBrowser } from "actions/ExtensionActions";
-import { getAppMode } from "store/selectors";
+import { getAppMode, getRequestBot } from "store/selectors";
 import { CONSTANTS as GLOBAL_CONSTANTS } from "@requestly/requestly-core";
 import { Col } from "antd";
 import PremiumPlanBadge from "./PremiumPlanBadge/PremiumPlanBadge";
@@ -26,6 +26,7 @@ export const MenuHeader = () => {
   const navigate = useNavigate();
   const appMode = useSelector(getAppMode);
   const user = useSelector(getUserAuthDetails);
+  const requestBotDetails = useSelector(getRequestBot);
 
   const gitHubStarButton = useMemo(() => {
     return (
@@ -54,15 +55,6 @@ export const MenuHeader = () => {
         >
           Tutorials
         </a>
-        <a
-          target="_blank"
-          rel="noreferrer"
-          href={LINKS.REQUESTLY_LANDING_HOME}
-          onClick={() => trackTopbarClicked("tutorials")}
-          className="no-drag app-primary-header-link"
-        >
-          Website
-        </a>
       </div>
       <div className="app-primary-header-section app-primary-header__mid no-drag">
         <DesktopAppProxyInfo />
@@ -90,16 +82,30 @@ export const MenuHeader = () => {
             <div className="search-shortcut-annotation">⌘+K</div>
           </RQButton> */}
         </div>
-        <div>{gitHubStarButton}</div>
-        <RQButton
-          type="transparent"
-          icon={<BotIcon />}
-          onClick={() => dispatch(globalActions.updateRequestBot({ isActive: true, modelType: "app" }))}
-        >
-          Ask AI
-        </RQButton>
-        <RQButton type="transparent" icon={<Settings />} onClick={() => redirectToSettings(navigate)} />
-        <HeaderUser />
+        <div className="app-primary-header__right-section">
+          <div>{gitHubStarButton}</div>
+          <RQButton
+            type="transparent"
+            icon={<BotIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              const isCurrentlyActive = requestBotDetails?.isActive;
+              dispatch(
+                globalActions.updateRequestBot({
+                  isActive: !isCurrentlyActive,
+                  modelType: "app",
+                })
+              );
+            }}
+          >
+            Ask AI
+          </RQButton>
+        </div>
+
+        <div className="app-primary-header__right-section">
+          <RQButton type="transparent" icon={<Settings />} onClick={() => redirectToSettings(navigate)} />
+          <HeaderUser />
+        </div>
       </div>
     </Header>
   );

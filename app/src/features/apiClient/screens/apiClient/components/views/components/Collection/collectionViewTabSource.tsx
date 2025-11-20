@@ -3,10 +3,10 @@ import PATHS from "config/constants/sub/paths";
 import { BaseTabSource } from "componentsV2/Tabs/helpers/baseTabSource";
 import { MatchedTabSource, TabSourceMetadata } from "componentsV2/Tabs/types";
 import { MdOutlineFolder } from "@react-icons/all-files/md/MdOutlineFolder";
+import { getApiClientRecordsStore } from "features/apiClient/commands/store.utils";
+import { ApiClientFeatureContext } from "features/apiClient/store/apiClientFeatureContext/apiClientFeatureContext.store";
 
-interface CollectionViewTabSourceMetadata extends TabSourceMetadata {
-  focusBreadcrumb?: boolean;
-}
+interface CollectionViewTabSourceMetadata extends TabSourceMetadata {}
 
 export class CollectionViewTabSource extends BaseTabSource {
   constructor(metadata: CollectionViewTabSourceMetadata) {
@@ -27,6 +27,12 @@ export class CollectionViewTabSource extends BaseTabSource {
       throw new Error("Collection id not found!");
     }
 
-    return new CollectionViewTabSource({ id: collectionId, title: "Collection" });
+    return new CollectionViewTabSource({ id: collectionId, title: "Collection", context: {} });
+  }
+
+  getIsValidTab(context: ApiClientFeatureContext): boolean {
+    const store = getApiClientRecordsStore(context);
+    const isExist = store.getState().getData(this.metadata.id);
+    return !!isExist;
   }
 }

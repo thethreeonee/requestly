@@ -20,6 +20,7 @@ import {
   sendSignInLinkToEmail,
   SAMLAuthProvider,
   OAuthProvider,
+  GithubAuthProvider,
 } from "firebase/auth";
 import { getDatabase, ref, update, onValue, remove, get, set, child } from "firebase/database";
 import md5 from "md5";
@@ -59,7 +60,6 @@ import {
 } from "modules/analytics/events/common/auth/verifyOobcode";
 import { sanitizeDataForFirebase } from "utils/Misc";
 import Logger from "lib/logger";
-import { StorageService } from "init";
 import APP_CONSTANTS from "config/constants";
 import { SOURCE } from "modules/analytics/events/common/constants";
 import {
@@ -70,6 +70,9 @@ import {
 import { toast } from "utils/Toast";
 import { getUserProfilePath } from "utils/db/UserModel";
 import { AuthErrorCode } from "features/onboarding/screens/auth/types";
+import { trackEvent } from "modules/analytics";
+import { clientStorageService } from "services/clientStorageService";
+import { isSetappBuild } from "utils/AppUtils";
 
 const dummyUserImg = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
 /**
@@ -470,6 +473,9 @@ export const googleSignInDesktopApp = (callback, MODE, source, oneTimeCode) => {
     if (oneTimeCode) {
       desktopSignInAuthUrl = new URL(desktopSignInAuthUrl);
       desktopSignInAuthUrl.searchParams.append("auth_mode", MODE);
+      if (isSetappBuild()) {
+        desktopSignInAuthUrl.searchParams.append("isAuthForSetappBuild", "true");
+      }
       desktopSignInAuthUrl = desktopSignInAuthUrl.toString();
     }
 
@@ -533,6 +539,49 @@ export async function appleSignIn(source, callback) {
         error_message: err.message,
         source,
       });
+    });
+}
+
+export async function authorizeWithGithub(callback, source) {
+  const provider = new GithubAuthProvider();
+  const auth = getAuth(firebaseApp);
+  return signInWithPopup(auth, provider)
+    .then((result) => {
+      let email = result?.user?.email || null;
+      const credential = GithubAuthProvider.credentialFromResult(result);
+      const token = credential.accessToken;
+
+      trackEvent("github_authorized", {
+        source,
+        email,
+      });
+
+      trackLoginSuccessEvent({
+        auth_provider: AUTH_PROVIDERS.GITHUB,
+        email,
+        domain: email?.split("@")?.[1],
+        source,
+      });
+
+      return { accessToken: token, email };
+    })
+    .catch((err) => {
+      if (err.code === "auth/account-exists-with-different-credential") {
+        const email = err.customData.email;
+        trackEvent("github_authorized", {
+          source,
+          email,
+        });
+        trackLoginSuccessEvent({
+          auth_provider: AUTH_PROVIDERS.GITHUB,
+          email,
+          domain: email?.split("@")?.[1],
+          source,
+        });
+        return { accessToken: err.customData?._tokenResponse?.oauthAccessToken, email };
+      }
+
+      return {};
     });
 }
 
@@ -659,7 +708,7 @@ export async function getOrUpdateUserSyncState(uid, appMode) {
     } else {
       syncStatus = profile.isSyncEnabled;
       // Optional - Just in case!
-      if (!syncStatus) await StorageService(appMode).removeRecordsWithoutSyncing([APP_CONSTANTS.LAST_SYNC_TARGET]);
+      if (!syncStatus) await clientStorageService.removeStorageObjects([APP_CONSTANTS.LAST_SYNC_TARGET]);
     }
   } else {
     // Profile has not been created yet - user must have signed up recently

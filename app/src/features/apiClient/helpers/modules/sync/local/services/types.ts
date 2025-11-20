@@ -40,6 +40,7 @@ export type HTTPRequestDetails = {
   body?: RQAPI.RequestBody;
   bodyContainer: RQAPI.RequestBodyContainer;
   contentType: RequestContentType;
+  pathVariables?: RQAPI.PathVariable[];
 };
 
 export type BaseApiRequestDetails = {
@@ -72,6 +73,7 @@ export type VariableEntity = Record<
     value: VariableValueType;
     type: EnvironmentVariableType;
     isSecret: boolean;
+    isPresisted: true;
   }
 >;
 
@@ -79,6 +81,7 @@ export type EnvironmentEntity = {
   type: "environment";
   id: string;
   name: string;
+  isGlobal: boolean;
   variables?: VariableEntity;
 };
 

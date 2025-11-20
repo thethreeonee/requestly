@@ -270,6 +270,28 @@ export const API_CLIENT = {
   IMPORT_DATA_FAILED: "api_client_import_requests_parsing_failed",
   IMPORT_SUCCESS: "api_client_import_success",
   IMPORT_FAILED: "api_client_import_failed",
+
+  // Collection Runner
+  COLLECTION_RUN_STARTED: "api_client_collection_run_started",
+  COLLECTION_RUN_STOPPED: "api_client_collection_run_stopped",
+  COLLECTION_RUN_HISTORY_VIEWED: "api_client_collection_run_history_viewed",
+  COLLECTION_RUN_SAVE_HISTORY_FAILED: "api_client_collection_run_save_history_failed",
+  COLLECTION_RUNNER_VIEWED: "api_client_collection_runner_viewed",
+  COLLECTION_RUNNER_CONFIG_SAVED: "api_client_collection_runner_config_saved",
+  COLLECTION_RUNNER_CONFIG_SAVE_FAILED: "api_client_collection_runner_config_save_failed",
+
+  // Tests Autogeneration
+  TEST_GENERATION_STARTED: "api_client_test_generation_started",
+  TEST_GENERATION_COMPLETED: "api_client_test_generation_completed",
+  TEST_GENERATION_FAILED: "api_client_test_generation_failed",
+
+  //Data-File Support for Collection Runner
+  COLLECTION_RUNNER_SELECT_FILE_CLICKED: "api_client_collection_runner_select_file_clicked",
+  COLLECTION_RUNNER_FILE_PARSED: "api_client_collection_runner_file_parsed",
+  COLLECTION_RUNNER_FILE_PARSE_FAILED: "api_client_collection_runner_file_parse_failed",
+  COLLECTION_RUNNER_FILE_RECORD_LIMIT_EXCEEDED: "api_client_collection_runner_file_record_limit_exceeded",
+  COLLECTION_RUNNER_TRUNCATED_FILE_USED: "api_client_collection_runner_truncated_file_used",
+  COLLECTION_RUNNER_FILE_CLEARED: "api_client_collection_runner_file_cleared",
 };
 
 export const REDIRECT_DESTINATION_OPTION = {
