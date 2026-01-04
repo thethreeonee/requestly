@@ -9,7 +9,8 @@ import {
 } from "features/apiClient/screens/apiClient/components/views/components/request/components/AuthorizationView/defaults";
 import { ApiClientRecordsInterface } from "features/apiClient/helpers/modules/sync/interfaces";
 import { EnvironmentVariableData } from "features/apiClient/store/variables/types";
-import { createBodyContainer } from "features/apiClient/screens/apiClient/utils";
+import { createBodyContainer, getInferredKeyValueDataType } from "features/apiClient/screens/apiClient/utils";
+import { captureException } from "backend/apiClient/utils";
 
 interface PostmanCollectionExport {
   info: {
@@ -34,9 +35,10 @@ interface PostmanEnvironmentExport {
 interface RequestBodyProcessingResult {
   requestBody: RQAPI.RequestBody;
   contentType: RequestContentType;
+}
+interface RequestHeadersProcessingResult {
   headers: KeyValuePair[];
 }
-
 export const getUploadedPostmanFileType = (fileContent: PostmanCollectionExport | PostmanEnvironmentExport) => {
   if ("info" in fileContent && fileContent.info?.schema) {
     return "collection";
@@ -121,7 +123,8 @@ const processAuthorizationOptions = (item: PostmanAuth.Item | undefined, parentC
     };
   } else if (item.type === PostmanAuth.AuthType.BASIC_AUTH) {
     const basicAuthOptions = item[item.type];
-    let username: PostmanAuth.KV<"username">, password: PostmanAuth.KV<"password">;
+    //if somehow username or password comes undefined return empty string in that case as fallback to avoid runtime error
+    let username: PostmanAuth.KV<"username"> | undefined, password: PostmanAuth.KV<"password"> | undefined;
 
     basicAuthOptions.forEach((option) => {
       if (option.key === "username") {
@@ -132,13 +135,13 @@ const processAuthorizationOptions = (item: PostmanAuth.Item | undefined, parentC
     });
 
     auth.authConfigStore[Authorization.Type.BASIC_AUTH] = {
-      username: username.value,
-      password: password.value,
+      username: username?.value ?? "",
+      password: password?.value ?? "",
     };
   } else if (item.type === PostmanAuth.AuthType.API_KEY) {
     const apiKeyOptions = item[item.type];
-    let keyLabel: PostmanAuth.KV<"key">;
-    let apiKey: PostmanAuth.KV<"value">;
+    let keyLabel: PostmanAuth.KV<"key"> | undefined;
+    let apiKey: PostmanAuth.KV<"value"> | undefined;
     let addTo: Authorization.API_KEY_CONFIG["addTo"] = "HEADER";
 
     apiKeyOptions.forEach((option) => {
@@ -152,8 +155,8 @@ const processAuthorizationOptions = (item: PostmanAuth.Item | undefined, parentC
     });
 
     auth.authConfigStore[Authorization.Type.API_KEY] = {
-      key: keyLabel.value,
-      value: apiKey.value,
+      key: keyLabel?.value ?? "",
+      value: apiKey?.value ?? "",
       addTo,
     };
   }
@@ -177,49 +180,31 @@ const getContentTypeForRawBody = (bodyType: string) => {
   }
 };
 
-const addImplicitContentTypeHeader = (headers: KeyValuePair[], contentType: RequestContentType): KeyValuePair[] => {
-  const isContentTypeHeaderSet = headers.find((header: KeyValuePair) => header.key === "Content-Type");
-  if (!isContentTypeHeaderSet) {
-    return [
-      ...headers,
-      {
-        id: headers.length,
-        key: "Content-Type",
-        value: contentType,
-        isEnabled: true,
-      },
-    ];
-  }
-  return headers;
-};
-
-const processRawRequestBody = (raw: string, options: any, headers: KeyValuePair[]): RequestBodyProcessingResult => {
+const processRawRequestBody = (raw: string, options: any): RequestBodyProcessingResult => {
   const contentType = getContentTypeForRawBody(options?.raw?.language);
-  const updatedHeaders = raw?.length ? addImplicitContentTypeHeader(headers, contentType) : headers;
 
   return {
     requestBody: raw,
     contentType,
-    headers: updatedHeaders,
   };
 };
 
-const processFormDataBody = (formdata: any[]): Omit<RequestBodyProcessingResult, "headers"> => {
+const processFormDataBody = (formdata: any[]): RequestBodyProcessingResult => {
   return {
     requestBody:
-      formdata?.map((formData: { key: string; value: string }) => ({
+      formdata?.map((formData: { key: string; value?: any; src?: any; type: "file" | "text" }) => ({
         id: Date.now(),
         key: formData.key,
-        value: formData.value,
+        value: formData.type === "file" ? formData.src : formData.value,
         isEnabled: true,
+        type: formData.type,
       })) || [],
-    contentType: RequestContentType.FORM,
+    contentType: RequestContentType.MULTIPART_FORM,
   };
 };
 
-const processUrlEncodedBody = (urlencoded: any[], headers: KeyValuePair[]): RequestBodyProcessingResult => {
+const processUrlEncodedBody = (urlencoded: any[]): RequestBodyProcessingResult => {
   const contentType = RequestContentType.FORM;
-  const updatedHeaders = urlencoded.length ? addImplicitContentTypeHeader(headers, contentType) : headers;
 
   return {
     requestBody: urlencoded.map((data: { key: string; value: string }) => ({
@@ -229,54 +214,61 @@ const processUrlEncodedBody = (urlencoded: any[], headers: KeyValuePair[]): Requ
       isEnabled: true,
     })),
     contentType,
-    headers: updatedHeaders,
   };
 };
 
 const processRequestBody = (request: any): RequestBodyProcessingResult => {
   if (!request.body) {
     return {
-      requestBody: null,
+      requestBody: "",
       contentType: RequestContentType.RAW,
-      headers: request.header || [],
     };
   }
 
-  const processGraphqlBody = (graphql: any, headers: KeyValuePair[]): RequestBodyProcessingResult => {
+  const processGraphqlBody = (graphql: any): RequestBodyProcessingResult => {
     const contentType = RequestContentType.JSON;
-    const updatedHeaders = addImplicitContentTypeHeader(headers, contentType);
     return {
       requestBody: JSON.stringify(graphql),
       contentType,
-      headers: updatedHeaders,
     };
   };
 
   const { mode, raw, formdata, options, urlencoded, graphql } = request.body;
-  const headers =
-    request.header?.map((header: KeyValuePair, index: number) => ({
-      id: index,
-      key: header.key,
-      value: header.value,
-      isEnabled: true,
-    })) ?? [];
 
   switch (mode) {
     case PostmanBodyMode.RAW:
-      return processRawRequestBody(raw, options, headers);
+      return processRawRequestBody(raw, options);
     case PostmanBodyMode.FORMDATA:
-      return { ...processFormDataBody(formdata), headers };
+      return processFormDataBody(formdata);
     case PostmanBodyMode.URL_ENCODED:
-      return processUrlEncodedBody(urlencoded, headers);
+      return processUrlEncodedBody(urlencoded);
     case PostmanBodyMode.GRAPHQL:
-      return processGraphqlBody(graphql, headers);
+      return processGraphqlBody(graphql);
     default:
       return {
-        requestBody: null,
+        requestBody: "",
         contentType: RequestContentType.RAW,
-        headers,
       };
   }
+};
+
+export const processRequestHeaders = (request: any): RequestHeadersProcessingResult => {
+  const headers =
+    request.header?.map(
+      (
+        header: { key: string; value: string; disabled: boolean; type: string; description?: string },
+        index: number
+      ) => ({
+        id: index,
+        key: header.key,
+        value: header.value,
+        isEnabled: !header?.disabled,
+        description: header?.description || "",
+        dataType: getInferredKeyValueDataType(header.value),
+      })
+    ) ?? [];
+
+  return { headers };
 };
 
 const createApiRecord = (
@@ -292,10 +284,13 @@ const createApiRecord = (
       id: index,
       key: query.key,
       value: query.value,
-      isEnabled: true,
+      isEnabled: query?.disabled !== true,
+      description: query.description || "",
+      dataType: getInferredKeyValueDataType(query.value),
     })) ?? [];
 
-  const { requestBody, contentType, headers } = processRequestBody(request);
+  const { requestBody, contentType } = processRequestBody(request);
+  const { headers } = processRequestHeaders(request);
 
   return {
     id: apiClientRecordsRepository.generateApiRecordId(parentCollectionId),
@@ -385,12 +380,18 @@ export const processPostmanCollectionData = (
         subCollection.collectionId = parentCollectionId;
         result.collections.push(subCollection);
 
+        if (!subCollection.id) {
+          const error = new Error(`Failed to generate collection ID for: ${item.name}`);
+          captureException(error);
+          return;
+        }
         const subItems = processItems(item.item, subCollection.id);
         result.collections.push(...subItems.collections);
         result.apis.push(...subItems.apis);
       } else if (item.request) {
         // This is an API endpoint
-        result.apis.push(createApiRecord(item, parentCollectionId, apiClientRecordsRepository));
+        const data = createApiRecord(item, parentCollectionId, apiClientRecordsRepository);
+        result.apis.push(data);
       }
     });
 

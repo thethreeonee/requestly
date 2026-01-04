@@ -8,6 +8,11 @@ export const getIsExtensionEnabled = (state) => {
   return getGlobalState(state)["isExtensionEnabled"];
 };
 
+export const getBottomSheetState = (state, context) => {
+  const orientation = getGlobalState(state)["bottomSheetOrientation"] || {};
+  return orientation[context] || null;
+};
+
 export const getRulesNode = (state) => {
   return getGlobalState(state)["rules"];
 };
@@ -370,4 +375,8 @@ export const getIsAcquisitionAnnouncementModalVisible = (state) => {
 
 export const getPopupConfig = (state) => {
   return getGlobalState(state).popupConfig;
+};
+
+export const getHasGeneratedAITests = (state) => {
+  return getGlobalState(state).misc.persist?.hasGeneratedAITests;
 };

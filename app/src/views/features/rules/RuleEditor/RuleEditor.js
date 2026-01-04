@@ -21,6 +21,7 @@ import { RuleEditorBottomSheet } from "./components/RuleEditorBottomSheet/RuleEd
 import { trackSampleRuleTested } from "features/rules/analytics";
 import { RecordStatus } from "@requestly/shared/types/entities/rules";
 import { sampleRuleDetails } from "features/rules/screens/rulesList/components/RulesList/constants";
+import { SheetLayout } from "componentsV2/BottomSheet/types";
 import "./RuleEditor.scss";
 
 const RuleEditor = (props) => {
@@ -85,7 +86,7 @@ const RuleEditor = (props) => {
 
   useEffect(() => {
     if (isNewRuleCreated) {
-      toggleBottomSheet({ isOpen: false, isTrack: false, action: "new_rule_created" });
+      toggleBottomSheet({ isOpen: false, action: "new_rule_created" });
       setIsNewRuleCreated(false);
     }
   }, [toggleBottomSheet, isNewRuleCreated]);
@@ -96,7 +97,7 @@ const RuleEditor = (props) => {
       state?.source !== APP_CONSTANTS.RULE_EDITOR_CONFIG.MODES.CREATE &&
       !isNewRuleCreated
     ) {
-      if (isBottomSheetOpen) toggleBottomSheet({ isOpen: false, isTrack: false, action: "new_rule_created" });
+      if (isBottomSheetOpen) toggleBottomSheet({ isOpen: false, action: "new_rule_created" });
     }
   }, [toggleBottomSheet, MODE, state, isNewRuleCreated, isBottomSheetOpen]);
 
@@ -137,8 +138,8 @@ const RuleEditor = (props) => {
           <BottomSheetLayout
             bottomSheet={<RuleEditorBottomSheet mode={MODE} />}
             hideBottomSheet={MODE === APP_CONSTANTS.RULE_EDITOR_CONFIG.MODES.CREATE || isSampleRule}
-            minSize={26}
             initialSizes={[60, 40]}
+            layout={SheetLayout.SPLIT}
           >
             <ProCard
               className={`rule-editor-procard ${
